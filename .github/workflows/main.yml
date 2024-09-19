@@ -1,43 +1,39 @@
-name: Convert Word files to Markdown
+name: Tag on commit message
 
 on:
   push:
-    paths:
-      - 'docs/*.docx'
-
-permissions:
-  contents: write  # リポジトリへの書き込み権限を付与
+    branches:
+      - main  # このアクションを実行するブランチを指定（例えばmainブランチ）
 
 jobs:
-  convert-docx:
+  create_tag:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Install Pandoc
-      run: sudo apt-get install -y pandoc
+      - name: Check for version update commit message
+        id: check_commit
+        run: |
+          # 最後のコミットメッセージを取得
+          COMMIT_MESSAGE=$(git log -1 --pretty=%B)
 
-    - name: Create output directory if it doesn't exist
-      run: mkdir -p output  # outputディレクトリを作成
+          # 正規表現でマッチするか確認
+          if [[ "$COMMIT_MESSAGE" =~ ^Update\ library\.json\ version\ to\ ([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION=${BASH_REMATCH[1]}
+            echo "::set-output name=version::$VERSION"
+          else
+            echo "No matching commit message. Skipping tag creation."
+            exit 0
+          fi
 
-    - name: List Word files in docs/
-      run: ls docs/
-
-    - name: Convert all Word files to Markdown
-      run: |
-        for file in docs/*.docx; do
-          filename=$(basename "$file" .docx)  # ファイル名から拡張子を除去
-          # mediaディレクトリをoutput/mediaに設定
-          pandoc "$file" --extract-media=output -t markdown -o "output/$filename.md"
-        done
-
-    - name: Commit and push changes
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # GITHUB_TOKENを設定
-      run: |
-        git config --global user.name "github-actions[bot]"
-        git config --global user.email "github-actions[bot]@users.noreply.github.com"
-        git add output/*.md output/media/*
-        git commit -m "Auto-converted Word files to Markdown with media"
-        git push
+      - name: Create tag
+        if: steps.check_commit.outputs.version != ''
+        run: |
+          VERSION=${{ steps.check_commit.outputs.version }}
+          echo "Creating tag for version $VERSION"
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Tag for version $VERSION"
+          git push origin "v$VERSION"
