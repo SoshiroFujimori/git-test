@@ -12,6 +12,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # フルコミット履歴を取得
 
       - name: Set up Python (to use jq)
         uses: actions/setup-python@v4
@@ -23,7 +25,7 @@ jobs:
           CURRENT_VERSION=$(jq -r '.version' library.json)
           echo "Current version: $CURRENT_VERSION"
           
-          # 最後のコミットで変更されたファイルを確認
+          # library.jsonが最後のコミットで変更されたか確認
           if git diff HEAD^ HEAD --quiet --exit-code -- library.json; then
             echo "No changes in library.json. Skipping tag creation."
             exit 0
@@ -32,7 +34,7 @@ jobs:
             # 前のバージョンと新しいバージョンを比較
             PREVIOUS_VERSION=$(git show HEAD^:library.json | jq -r '.version')
             if [ "$CURRENT_VERSION" != "$PREVIOUS_VERSION" ]; then
-              echo "::set-output name=version::$CURRENT_VERSION"
+              echo "VERSION=$CURRENT_VERSION" >> $GITHUB_ENV
             else
               echo "Version has not changed. Skipping tag creation."
               exit 0
@@ -40,9 +42,9 @@ jobs:
           fi
 
       - name: Create tag
-        if: steps.check_version.outputs.version != ''
+        if: env.VERSION != ''
         run: |
-          VERSION=${{ steps.check_version.outputs.version }}
+          VERSION=$VERSION
           echo "Creating tag for version $VERSION"
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
