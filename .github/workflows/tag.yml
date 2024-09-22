@@ -2,8 +2,6 @@ name: Tag on version change
 
 on:
   push:
-    branches:
-      - master  # このアクションを実行するブランチを指定
 
 jobs:
   create_tag:
@@ -48,37 +46,3 @@ jobs:
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git tag -a "v$VERSION" -m "Tag for version $VERSION"
           git push origin "v$VERSION"
-
-
-name: Compile Examples
-
-on:
-  push:
-  pull_request:
-  workflow_dispatch:
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout repository
-      uses: actions/checkout@v3
-
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.x'
-
-    - name: Install PlatformIO
-      run: |
-        python -m pip install -U platformio
-
-    - name: Compile all examples
-      run: |
-        for dir in examples/*; do
-          if [ -d "$dir" ]; then
-            echo "Building project in $dir"
-            platformio ci --project-dir="$dir" --board ATmega328P
-          fi
-        done
